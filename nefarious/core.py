@@ -219,11 +219,10 @@ class ImageFileDirectory:
     def load(self, fp, em, dir_offset, level=0):
         """reads an ifd directory, file pointer must already be at the right location!!"""
 
-        #instanciate a data parser
+        # instanciate a data parser
         parser = DataParser( em )
-        
-        # dir_offset = fp.tell();
-        print "0x%08x" % (dir_offset, )
+
+        # print "0x%08x" % (dir_offset, )
         cur_offset = dir_offset
 
         # read tag count
@@ -257,7 +256,7 @@ class ImageFileDirectory:
                 rawdata = fp.read( size )
                 fp.seek(oldOffset)
 
-            # Make sure we could read as much data as we wanted and didn't hit the end of the file
+            # Make sure we were able to read as much data as we wanted and didn't hit the end of the file
             if len(rawdata) != size:
                 raise IOError, "not enough data"
 
@@ -366,7 +365,7 @@ class ImageFileDirectory:
                     fp.write( getattr(writer, "%d" % (tag.type, ))( tag.data ) )
 
 
-        # okay, all directory data has been written, now we right the drectory tags themselves, and we record the current file pointer
+        # okay, all directory data has been written, now we right the directory tags themselves, and we record the current file pointer
         IFDStartOffset = fp.tell()
 
         fp.write( getattr(writer, "%d" % (TYPE_SHORT, ))( [len(self.tags_by_code)] ) )
@@ -471,7 +470,7 @@ class TiffImage:
     def save(self, filename):
         """write the tiff structure as a file"""
 
-        fp = open(filename, 'w+')
+        fp = open(filename, 'wb+')
         fp.write(self.header)
 
         writer = DataWriter( self.em )
