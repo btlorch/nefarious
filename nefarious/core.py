@@ -8,7 +8,7 @@ with code taken from PIL
 import sys
 import struct
 
-from nefarious.constants import *
+from constants import *
 
 
 
@@ -216,17 +216,19 @@ class ImageFileDirectory:
         self.imageData = None
 
 
-    def load(self, fp, em, level=0):
+    def load(self, fp, em, dir_offset, level=0):
         """reads an ifd directory, file pointer must already be at the right location!!"""
 
         #instanciate a data parser
         parser = DataParser( em )
         
-        dir_offset = fp.tell();
-        # print "x%08x" % (dir_offset, )
+        # dir_offset = fp.tell();
+        print "0x%08x" % (dir_offset, )
+        cur_offset = dir_offset
 
         # read tag count
         tagcount = getattr(parser, "%d" % TYPE_SHORT)( fp.read(2) )[0]
+        cur_offset += 2
 
         # read all tags
         for i in range(tagcount):
@@ -242,15 +244,20 @@ class ImageFileDirectory:
             unitSize, _, _ = TYPES[zeType]
             size = count * unitSize
 
+            # We've read 8 bytes description and either 4 bytes value or jumped to the value that's position has been encoded in 4 bytes
+            cur_offset += 12
+
             if size <= 4:
                 rawdata = rawdata[:size]
             else:
-                oldOffset = fp.tell()
+                # Jump to offset, read size and jump back
+                oldOffset = cur_offset
                 nextOffset = getattr(parser, "%d" % TYPE_LONG)( rawdata )[0]
                 fp.seek( nextOffset )
                 rawdata = fp.read( size )
-                fp.seek( oldOffset )
+                fp.seek(oldOffset)
 
+            # Make sure we could read as much data as we wanted and didn't hit the end of the file
             if len(rawdata) != size:
                 raise IOError, "not enough data"
 
@@ -261,15 +268,15 @@ class ImageFileDirectory:
 
             if tagCode in [TAG_SUBIFD, TAG_EXIFIFD, TAG_GPS_INFO]:
                 # read all sub ifds
-                oldOffset = fp.tell()
+                oldOffset = cur_offset
                 ifds = []
                 tag = Tag(tagCode, zeType, ifds)
                 for offset in data:
                     fp.seek( offset )
                     subIfd = ImageFileDirectory(tag)
-                    subIfd.load(fp, em, level+1)
+                    subIfd.load(fp, em, level+1, offset)
                     ifds.append( subIfd )
-                fp.seek(oldOffset)
+                fp.seek(cur_offset+1)
 
             else:
                 tag = Tag(tagCode, zeType, data)
@@ -289,7 +296,7 @@ class ImageFileDirectory:
 
         # all tags have been read, next long is the next ifd offset that will be read used by the CALLER
         # hence, save current offset before fetching image data
-        oldOffset = fp.tell()
+        oldOffset = cur_offset
 
         if self.tags_by_code.has_key( TAG_SUBIFD ):
             self.ifds = self.tags_by_code[ TAG_SUBIFD ].data
@@ -312,7 +319,7 @@ class ImageFileDirectory:
                 self.imageData.append( fp.read( self.tags_by_code[ TAG_STRIPBYTECOUNTS ].data[i] ) )
 
         # image data has been read, now return to correct offset before passing the hand back to caller...
-        fp.seek( oldOffset )
+        fp.seek(oldOffset)
 
 
     def save(self, fp, em):
@@ -432,7 +439,7 @@ class TiffImage:
 
         fp = open(filename, 'r+')
 
-        # Header
+        # Read byte order and TIFF magic value as header
         self.header = fp.read(4)
 
         if self.header not in PREFIXES:
@@ -451,9 +458,10 @@ class TiffImage:
             if offset == 0:
                 break
 
+            # Go to offset of first tiff directory
             fp.seek( offset )
             ifd = ImageFileDirectory()
-            ifd.load(fp, self.em)
+            ifd.load(fp, self.em, offset)
             self.frames.append( ifd )
 
         fp.close()
