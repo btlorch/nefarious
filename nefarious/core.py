@@ -274,7 +274,7 @@ class ImageFileDirectory:
                 for offset in data:
                     fp.seek( offset )
                     subIfd = ImageFileDirectory(tag)
-                    subIfd.load(fp, em, level+1, offset)
+                    subIfd.load(fp, em, offset, level=level+1)
                     ifds.append( subIfd )
                 fp.seek(oldOffset)
 
