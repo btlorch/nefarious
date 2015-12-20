@@ -233,7 +233,7 @@ class ImageFileDirectory:
         # read all tags
         for i in range(tagcount):
 
-            tagPos = fp.tell()
+            tagPos = cur_offset
             tagBlock = fp.read(12)
 
             tagCode = getattr(parser, "%d" % TYPE_SHORT)( tagBlock[:2] )[0]
@@ -276,7 +276,7 @@ class ImageFileDirectory:
                     subIfd = ImageFileDirectory(tag)
                     subIfd.load(fp, em, level+1, offset)
                     ifds.append( subIfd )
-                fp.seek(cur_offset+1)
+                fp.seek(oldOffset)
 
             else:
                 tag = Tag(tagCode, zeType, data)
@@ -437,7 +437,7 @@ class TiffImage:
     def load(self, filename):
         """Open a TIFF file and import its structure"""
 
-        fp = open(filename, 'r+')
+        fp = open(filename, 'rb')
 
         # Read byte order and TIFF magic value as header
         self.header = fp.read(4)
